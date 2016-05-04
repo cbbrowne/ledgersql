@@ -79,3 +79,17 @@ CREATE INDEX ledger_xtn_year_index ON ledger USING btree (xtn_year);
 --     - day of week
 --     - day of month
 --     - is it a holiday in a relevant calendar?
+
+-- There should be several representations of data...
+--  - As near-raw input, where the point is to know
+--    about where it came from.  Not to be referenced
+--    directly for accounting queries.
+--  - As aggregated data, which will look somewhat
+--    data-warehouse-y.  It'll reference the "raw" data,
+--    but "cook" it into usable form for queries
+--  - I wonder if there should be some sort of
+--    multi-versioning, so that if we re-load a data
+--    file, we capture something sorta like DNS serial
+--    number temporality, so we could audit the
+--    progression of the data file over time...
+
