@@ -1,0 +1,66 @@
+* ledgersql - Integration of Ledger with PostgreSQL
+
+The notion of this is to allow drawing sets of Ledger data
+[[http://ledger-cli.sh.org][ledger-cli.sh.org]] into a PostgreSQL database.
+
+Part of the point of the "sets" is to explore consolidating data from multiple data sources, as would happen if an organization used a series of Ledger files.
+For instance:
+  - Software In The Public Interest might collect accounting data from various sub-projects
+  - Debian might collect accounting data from sub-projects as well as from conference organizations for sponsored conferences
+  
+Express goals include:
+  - Capturing provenance of data sets.
+    - The point here is that you'll likely load the "same" data file over and over, as its contents progress due to introduction of new accounting data
+	- The goal is to have a history of how that data file evolves over time
+  - Finding overlaps, that might be expected in a couple ways:
+    - Transfers from parent org to sub-org
+    - If a data file is loaded twice, it would be nice to not merely
+      duplicate the data, but to notice duplicative information so it
+      may be deduplicated
+
+* Crucial concepts
+** LEDGERLABEL
+The LEDGERLABEL indicates a unique stream of ledger data, as happens
+where one loads from a ledger file repeatedly as it is periodically
+modified to add transactions.
+
+The user must determine a unique label for each distinguishable data
+source.
+
+* Tools
+** load-schema.sh
+
+This tool is used to load the ledger schema into a PostgreSQL
+database, to initialize it.
+
+This only needs to be done once.
+
+There is not yet a plan to have schema migration, in case it would be
+desirable to apply a newer schema version to a database running an
+older version.  It is possible that it is /not/ possible to do so; too
+early to be properly determined.
+
+** load-ledger.sh
+
+This tool is used to load a ledger data file into the database.  It is
+run thus:
+
+#+BEGIN_EXAMPLE
+$ ./load-ledger.sh postgresql://cbbrowne@localhost:7099/ledger pgcac ~/PostgreSQL/pgcac/Treasurer/Ledger/ledger.dat
+#+END_EXAMPLE
+
+  - DBURI :: Reference to the database.  You could also just specify
+       the database name, and use other PostgreSQL environment
+       variables (PGHOST, PGPORT, et al) to indicate where the
+       database is found
+  - LEDGERLABEL :: Indicates which data source this is coming from.
+  - LEDGERFILE :: Indicates the name of the file containing ledger data.
+
+It then collects other environment data (hostname, user, date) to
+provide some metadata surrounding this data load.
+
+The entire set of data is dumped using the ledger ~reg~ command, in a
+specified format, and loaded into a series of database tables to
+prepare it to be identified, versioned, and fully loaded into the
+~ledger~ database.
+

@@ -1,65 +1,60 @@
 --- Schema for ledgerSQL
 
-CREATE TABLE data_sources (
+CREATE TABLE ledger_sources (
    source_id serial primary key,
-   filename text,
-   loaded_on timestamptz not null,
-   first_loaded timestamptz not null
+   ledger_label text not null unique,
+   first_loaded timestamptz not null default now()
 );
-comment on table data_sources is 'Identifies sources of data';
-comment on column data_sources.source_id is 'internal ID of source';
-comment on column data_sources.filename is 'filename';
-comment on column data_sources.loaded_on is 'when was this data loaded?';
-comment on column data_sources.first_loaded is 'when was this data first loaded?';
+comment on table ledger_sources is 'Identifies sources of data';
+comment on column ledger_sources.source_id is 'internal ID of source';
+comment on column ledger_sources.ledger_label is 'unique ledger label';
+comment on column ledger_sources.first_loaded is 'when was this source initiated?';
 
-create index ds_fn on data_sources(filename);
-
-create table labels (
-   label_id serial primary key,
-   label text not null unique
+create table ledger_versions (
+  source_id integer references ledger_sources(source_id) on delete cascade,
+  created_on timestamptz not null default now(),
+  ledger_version serial not null,
+  primary key (ledger_version)
 );
+create index lv_version on ledger_versions(source_id, ledger_version);
 
-comment on table labels is 'Allows attaching logical labels to data sources';
-comment on column labels.label_id is 'Internal ID';
-comment on column labels.label is 'Unique label';
+comment on table ledger_versions is 'Every time a ledger is loaded, a new version will be established';
+comment on column ledger_versions.source_id is 'Source ledger';
+comment on column ledger_versions.created_on is 'When was new version established?';
+comment on column ledger_versions.ledger_version is 'ID of this ledger version';
 
-create table source_labels (
-   source_id integer not null references data_sources(source_id) on delete cascade,
-   label_id integer not null references labels(label_id) on delete restrict,
-   primary key (source_id, label_id)
-);
-create index slbl_label on source_labels(label_id);
-
-comment on table source_labels is 'Associates labels with data sources';
-comment on column source_labels.source_id is 'Which data source?';
-comment on column source_labels.label_id is 'Which label?';
-
-CREATE TABLE ledger (
-    source_id integer references data_sources(source_id),
-    xtn_date date,
-    checknum text,
-    note text,
-    account text,
-    commodity text,
-    amount numeric,
-    tags text,
-    xtn_month date,
-    xtn_year date,
-    virtual boolean,
-    xtn_id integer,
-    cleared boolean,
-    cost numeric
+create table ledger_metadata (
+   source_id integer references ledger_sources(source_id) on delete cascade,
+   ledger_version integer references ledger_versions(ledger_version) on delete cascade,
+   metadata_label text,
+   metadata_value text,
+   primary key (ledger_version, metadata_label)
 );
 
-CREATE INDEX ledger_account_source ON ledger USING btree (source_id);
-CREATE INDEX ledger_account_index ON ledger USING btree (account);
-CREATE INDEX ledger_commodity_index ON ledger USING btree (commodity);
-CREATE INDEX ledger_note_index ON ledger USING btree (note);
-CREATE INDEX ledger_tags_index ON ledger USING btree (tags);
-CREATE INDEX ledger_virtual_index ON ledger USING btree (virtual);
-CREATE INDEX ledger_xtn_date_index ON ledger USING btree (xtn_date);
-CREATE INDEX ledger_xtn_month_index ON ledger USING btree (xtn_month);
-CREATE INDEX ledger_xtn_year_index ON ledger USING btree (xtn_year);
+comment on table ledger_metadata is 'Metadata for a ledger version';
+comment on column ledger_metadata.source_id is 'Reference to ledger source';
+comment on column ledger_metadata.ledger_version is 'Reference to specific version';
+comment on column ledger_metadata.metadata_label is 'Metadata label';
+comment on column ledger_metadata.metadata_value is 'Metadata value';
+
+create table ledger_content (
+   source_id integer references ledger_sources(source_id) on delete cascade,
+   version_from integer references ledger_versions(ledger_version) on delete cascade,
+   version_to integer references ledger_versions(ledger_version) on delete cascade,
+   constraint version_ordering check (version_to is null or version_to > version_from),
+   ledger_line integer,
+   ledger_date date,
+   ledger_payee text,
+   ledger_account text,
+   ledger_commodity text,
+   ledger_amount numeric(14,2),
+   ledger_cleared boolean,
+   ledger_virtual boolean,
+   ledger_note text,
+   ledger_cost numeric(14,2),
+   ledger_code text,
+   primary key (source_id, version_from, ledger_line)
+);
 
 --- ledger-web did a data-warehousey thing of having a view that
 --- generated lists of all the dates found in the data sets,
@@ -172,3 +167,4 @@ refresh materialized view date_dimension;
 --    number temporality, so we could audit the
 --    progression of the data file over time...
 
+create table 
