@@ -55,6 +55,8 @@ create table ledger_content (
    ledger_code text,
    primary key (source_id, version_from, ledger_line)
 );
+create index lc_active_content on ledger_content(source_id) where (version_to is null);
+create index lc_date on ledger_content(ledger_date);
 
 --- ledger-web did a data-warehousey thing of having a view that
 --- generated lists of all the dates found in the data sets,
@@ -130,8 +132,8 @@ SELECT
 FROM (
         -- start 366 days before the earliest date, and
 	-- extend to a bit over a year after the latest date
-	SELECT (select xtn_date from public.ledger order by xtn_date limit 1) + SEQUENCE.DAY AS datum
-	FROM generate_series(-366, (select (select xtn_date from ledger order by xtn_date desc limit 1) - (select xtn_date from ledger order by xtn_date asc limit 1) + 366*2)) AS SEQUENCE(DAY)
+	SELECT (select ledger_date from public.ledger_content order by ledger_date limit 1) + SEQUENCE.DAY AS datum
+	FROM generate_series(-366, (select (select ledger_date from ledger_content order by ledger_date desc limit 1) - (select ledger_date from ledger_content order by ledger_date asc limit 1) + 366*2)) AS SEQUENCE(DAY)
 	GROUP BY SEQUENCE.DAY
      ) DQ
 ;
@@ -167,4 +169,3 @@ refresh materialized view date_dimension;
 --    number temporality, so we could audit the
 --    progression of the data file over time...
 
-create table 
