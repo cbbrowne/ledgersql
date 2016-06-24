@@ -43,6 +43,7 @@ create table ledger_content (
    version_to integer references ledger_versions(ledger_version) on delete cascade,
    constraint version_ordering check (version_to is null or version_to > version_from),
    ledger_line integer,
+   ledger_entry integer,
    ledger_date date,
    ledger_payee text,
    ledger_account text,
@@ -53,7 +54,7 @@ create table ledger_content (
    ledger_note text,
    ledger_cost numeric(14,2),
    ledger_code text,
-   primary key (source_id, version_from, ledger_line)
+   primary key (source_id, version_from, ledger_line, ledger_entry)
 );
 create index lc_active_content on ledger_content(source_id) where (version_to is null);
 create index lc_date on ledger_content(ledger_date);
