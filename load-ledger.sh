@@ -53,28 +53,30 @@ end \$\$ language plpgsql;
 select source_id into temp table t_source from ledger_sources where ledger_label = '${LEDGERLABEL}';
 
 create temp table unmodified_content as
-  select tx_line, tx_entry, tx_date, tx_payee, tx_account, tx_commodity, tx_amount, tx_cleared, tx_virtual, tx_note, tx_cost, tx_code from t_less_raw
+  select tx_entry from t_less_raw
   where exists (select 1 from ledger_content
      where source_id = (select source_id from t_source) and version_to is null
       and tx_line = ledger_line and tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code);
 
 create temp table moved_content as
   select tx_line, tx_entry, tx_date, tx_payee, tx_account, tx_commodity, tx_amount, tx_cleared, tx_virtual, tx_note, tx_cost, tx_code from t_less_raw
-  where exists (select 1 from ledger_content
+  where tx_entry not in (select tx_entry from unmodified_content) and exists (select 1 from ledger_content
      where source_id = (select source_id from t_source) and version_to is null
-      and tx_line <> ledger_line and tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code);
+      and tx_line <> ledger_line and (tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code));
 alter table moved_content add column ledger_line integer;
 
 update moved_content
   set ledger_line = (select min(ledger_line) from ledger_content
      where source_id = (select source_id from t_source) and version_to is null
-      and (tx_line <> ledger_line or tx_entry <> ledger_entry) and tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code);
+      and (tx_line <> ledger_line or tx_entry <> ledger_entry) and (tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code));
 
 create temp table new_content as
   select tx_line, tx_entry, tx_date, tx_payee, tx_account, tx_commodity, tx_amount, tx_cleared, tx_virtual, tx_note, tx_cost, tx_code from t_less_raw
-  where not exists (select 1 from ledger_content
+  where tx_entry not in (select tx_entry from moved_content) and
+     tx_entry not in (select tx_entry from unmodified_content) and
+     not exists (select 1 from ledger_content
      where source_id = (select source_id from t_source) and version_to is null
-       and tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code);  
+       and (tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code));  
 
 create temp table removed_content as
   select ledger_line from ledger_content where
