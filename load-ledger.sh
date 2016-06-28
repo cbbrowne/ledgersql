@@ -108,7 +108,8 @@ begin
    end if;
 end \$\$ language plpgsql;
 
-
+refresh materialized view latest_ledger;
+refresh materialized view date_dimension;
 commit;
 " > ${TEMPSQL}
 
