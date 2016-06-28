@@ -163,6 +163,7 @@ refresh materialized view date_dimension;
 --  - As aggregated data, which will look somewhat
 --    data-warehouse-y.  It'll reference the "raw" data,
 --    but "cook" it into usable form for queries
+
 create view v_latest_ledger as
    select ls.ledger_label, lv.created_on, lv.ledger_version,
    lc.ledger_line, lc.ledger_entry, lc.ledger_date, lc.ledger_payee, lc.ledger_account,
@@ -182,10 +183,4 @@ create index ll_label on latest_ledger(ledger_label);
 create index ll_line on latest_ledger(ledger_line);
 create index ll_account on latest_ledger(ledger_account);
 create index ll_date on latest_ledger(ledger_date);
-
---  - I wonder if there should be some sort of
---    multi-versioning, so that if we re-load a data
---    file, we capture something sorta like DNS serial
---    number temporality, so we could audit the
---    progression of the data file over time...
 
