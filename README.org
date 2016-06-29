@@ -38,7 +38,9 @@ This only needs to be done once.
 There is not yet a plan to have schema migration, in case it would be
 desirable to apply a newer schema version to a database running an
 older version.  It is possible that it is /not/ possible to do so; too
-early to be properly determined.
+early to be properly determined.  Right now, there is no path; schema
+changes are handled ad-hoc, because the schema is not sufficiently
+stable to warrant longer term strategy.
 
 ** load-ledger.sh
 
@@ -57,7 +59,8 @@ $ ./load-ledger.sh postgresql://cbbrowne@localhost:7099/ledger pgcac ~/PostgreSQ
   - LEDGERFILE :: Indicates the name of the file containing ledger data.
 
 It then collects other environment data (hostname, user, date) to
-provide some metadata surrounding this data load.
+provide some metadata surrounding this data load, as well as some
+summary statistics regarding data content.
 
 The entire set of data is dumped using the ledger ~reg~ command, in a
 specified format, and loaded into a series of database tables to

@@ -23,8 +23,9 @@ echo "Supplemental metadata:
 if [ -e ${LEDGERFILE} ]; then
 	ledger --file ${LEDGERFILE} --format="${LEDGERFMT}" reg > ${TEMPLEDGERDATA}
 	echo "Pulled ledger file ${LEDGERFILE} into ${TEMPLEDGERDATA} in CSV format"
-	LEDGERSIZE=`wc -l - < ${TEMPLEDGERDATA}`
-	echo "Size: ${LEDGERSIZE} lines"
+	LEDGERFILELINES=`cat ${TEMPLEDGERDATA} | wc -l`
+	LEDGERFILEBYTES=`cat ${TEMPLEDGERDATA} | wc -c`
+	echo "Size: ${LEDGERFILELINES} lines, ${LEDGERFILEBYTES} bytes"
 else
 	echo "No such ledger file as [${LEDGERFILE}]"
 	exit 1
@@ -86,6 +87,41 @@ create temp table removed_content as
      where 
        tx_date = ledger_date and tx_payee = ledger_payee and tx_account = ledger_account and tx_commodity = ledger_commodity and tx_amount = ledger_amount and tx_cleared = ledger_cleared and tx_virtual = ledger_virtual and tx_note = ledger_note and tx_cost = ledger_cost and tx_code = ledger_code);
 
+create temp table t_batch_stats (
+    label text,
+    value integer
+);
+
+-- Collect some statistics on the raw batch
+insert into t_batch_stats (label, value)
+  values 
+  ('ledger file lines', '${LEDGERFILELINES}'),
+  ('ledger file bytes', '${LEDGERFILEBYTES}');
+
+insert into t_batch_stats (label, value)
+select 'batch lines', (select count(*) from t_raw_ledger);
+
+insert into t_batch_stats (label, value)
+select 'batch unmodified entries', (select count(*) from unmodified_content);
+
+insert into t_batch_stats (label, value)
+select 'batch shifted entries', (select count(*) from moved_content);
+
+insert into t_batch_stats (label, value)
+select 'batch new entries', (select count(*) from new_content);
+
+insert into t_batch_stats (label, value)
+select 'batch deleted entries', (select count(*) from removed_content);
+
+insert into t_batch_stats (label, value)
+select 'batch unique accounts', (select count(distinct tx_account) from t_raw_ledger);
+
+insert into t_batch_stats (label, value)
+select 'batch sum of debits', (select sum(tx_amount) from t_less_raw where tx_amount > 0);
+
+insert into t_batch_stats (label, value)
+select 'batch sum of credits', (select sum(tx_amount) from t_less_raw where tx_amount < 0);
+
 do \$\$
 begin
    if exists (select 1 from moved_content) or exists (select 1 from new_content) or exists (select 1 from removed_content) then
@@ -105,8 +141,21 @@ begin
       -- add new data
       insert into ledger_content (source_id, version_from, ledger_line, ledger_entry, ledger_date, ledger_payee, ledger_account, ledger_commodity, ledger_amount, ledger_cleared, ledger_virtual, ledger_note, ledger_cost, ledger_code)
       select source_id, ledger_version, tx_line, tx_entry, tx_date, tx_payee, tx_account, tx_commodity, tx_amount, tx_cleared, tx_virtual, tx_note, tx_cost, tx_code from new_content, t_version;
+
+      -- Collect additional summary statistics
+      insert into t_batch_stats (label, value)
+      select 'ledger live lines for source', (select count(*) from ledger_content where source_id = (select source_id from t_source) and version_to is null);
+
+      insert into t_batch_stats (label, value)
+      select 'ledger newly obsolete lines for source', (select count(*) from ledger_content where source_id = (select source_id from t_source) and version_to = (select ledger_version from t_version));
+
+      -- Record all of the summary statistics
+      insert into ledger_stats (source_id, ledger_version, stats_label, stats_value)
+      select source_id, ledger_version, label, value
+      from t_version, t_batch_stats;
    end if;
 end \$\$ language plpgsql;
+
 
 refresh materialized view latest_ledger;
 refresh materialized view date_dimension;
@@ -117,6 +166,7 @@ psql --variable ON_ERROR_STOP=1 -d ${DBURI} -f ${TEMPSQL}
 if [ $? -eq 0 ]; then
 	echo "Loaded OK"
 	# And add in reporting of statistics
+	# Size of file, number of entries, perhaps git repo information?
 
 	# Clear out temp files
 	#rm -f $TEMPLEDGERDATA $TEMPSQL $TEMPSTATS

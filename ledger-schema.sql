@@ -37,6 +37,20 @@ comment on column ledger_metadata.ledger_version is 'Reference to specific versi
 comment on column ledger_metadata.metadata_label is 'Metadata label';
 comment on column ledger_metadata.metadata_value is 'Metadata value';
 
+create table ledger_stats (
+   source_id integer references ledger_sources(source_id) on delete cascade,
+   ledger_version integer references ledger_versions(ledger_version) on delete cascade,
+   stats_label text,
+   stats_value integer,
+   primary key (ledger_version, stats_label)
+);
+
+comment on table ledger_stats is 'Statistics about ledger data';
+comment on column ledger_stats.source_id is 'Reference to ledger source';
+comment on column ledger_stats.ledger_version is 'Reference to specific version';
+comment on column ledger_stats.stats_label is 'Statistical label';
+comment on column ledger_stats.stats_value is 'Value of statistic';
+
 create table ledger_content (
    source_id integer references ledger_sources(source_id) on delete cascade,
    version_from integer references ledger_versions(ledger_version) on delete cascade,
