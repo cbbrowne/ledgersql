@@ -159,17 +159,16 @@ end \$\$ language plpgsql;
 
 refresh materialized view latest_ledger;
 refresh materialized view date_dimension;
+refresh materialized view monthly_ledger_summary;
+refresh materialized view monthly_ledger_balances;
 commit;
 " > ${TEMPSQL}
 
 psql --variable ON_ERROR_STOP=1 -d ${DBURI} -f ${TEMPSQL}
 if [ $? -eq 0 ]; then
 	echo "Loaded OK"
-	# And add in reporting of statistics
-	# Size of file, number of entries, perhaps git repo information?
-
-	# Clear out temp files
-	#rm -f $TEMPLEDGERDATA $TEMPSQL $TEMPSTATS
+	rm -f $TEMPLEDGERDATA $TEMPSQL $TEMPSTATS
 else
 	echo "Problem loading SQL: rc=$?"
+	echo "See SQL $TEMPLEDGERDATA $TEMPSQL $TEMPSTATS for more details"
 fi

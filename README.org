@@ -67,3 +67,17 @@ specified format, and loaded into a series of database tables to
 prepare it to be identified, versioned, and fully loaded into the
 ~ledger~ database.
 
+* Period Groupings
+
+It should be obviously interesting to have some period-based
+summarizations of data.  Two solutions lend themselves:
+
+- Group account aggregates by month, because /nearly always/ monthly
+  groupings are of interest.  The materialized view
+  ~monthly_ledger_summary~ supports this purpose.
+
+- Calculate ending balances.  This should /not/ presume calendar year,
+  because it is common for organizations to have year ends at other
+  times in the year.  It is actually not obvious which balances are of
+  interest, so the materialized view ~monthly_ledger_balances~
+  computes end-of-month values as at the end of each month.

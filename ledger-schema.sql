@@ -189,7 +189,7 @@ where
    ls.source_id = lv.source_id and 
    ls.source_id = lc.source_id and
    lc.version_to is null;
-   
+
 create materialized view latest_ledger as
    select * from v_latest_ledger;
 
@@ -198,3 +198,24 @@ create index ll_line on latest_ledger(ledger_line);
 create index ll_account on latest_ledger(ledger_account);
 create index ll_date on latest_ledger(ledger_date);
 
+create view v_monthly_ledger_summary as
+   select ls.ledger_label, date_trunc('month', ledger_date) as ledger_month,
+   ledger_account, ledger_commodity, sum(ledger_amount) as ledger_amount,
+   ledger_cleared, ledger_virtual
+from v_latest_ledger ls
+   group by ledger_label, ledger_month, ledger_account, ledger_commodity, ledger_cleared, ledger_virtual;
+
+create materialized view monthly_ledger_summary as
+   select * from v_monthly_ledger_summary;
+
+create index ml_label on monthly_ledger_summary(ledger_label);
+create index ml_account on monthly_ledger_summary(ledger_account);
+create index ml_month on monthly_ledger_summary(ledger_month);
+
+create or replace view v_monthly_ledger_balances as
+   select ledger_label, ledger_month, ledger_account, ledger_commodity, ledger_cleared, ledger_virtual,
+   sum(ledger_amount) over (partition by ledger_label, ledger_account order by ledger_month) as ledger_balance
+from v_monthly_ledger_summary;
+
+create materialized view monthly_ledger_balances as
+   select * from v_monthly_ledger_balances;
